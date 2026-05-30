@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BookOpen, ScrollText, CalendarDays, MapPin, ChevronDown, Phone, User } from 'lucide-react'
+import { BookOpen, ScrollText, Award, CalendarDays, MapPin, ChevronDown, Phone, User } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 
@@ -9,7 +9,7 @@ const sections = [
     icon: ScrollText,
     title: 'الشروط',
     items: [
-      'حفظ القرآن كاملًا مع إتقان التجويد',
+      'حفظ القرآن الكريم كاملًا مع إتقان التجويد',
       'إتقان التفسير الميسر لجزء عم',
       'المشاركة متاحة لجميع الأعمار والجنسين',
       'غير مسموح بمشاركة معلمي القرآن بالأزهر',
@@ -19,9 +19,19 @@ const sections = [
     ],
   },
   {
+    id: 'awards',
+    icon: Award,
+    title: 'الجوائز والتكريم',
+    items: [
+      'تكريم خاص للفائزين في المسابقة',
+      'جوائز مادية وعينية قيّمة',
+      'دروع وشهادات تقدير',
+    ],
+  },
+  {
     id: 'dates',
     icon: CalendarDays,
-    title: 'مواعيد مهمة',
+    title: 'مواعيد هامة',
     items: [
       'التقديم: من 1 يونيو 2026 حتى 30 يونيو 2026',
       'موعد الاختبارات: خلال النصف الثاني من شهر أغسطس 2026',
@@ -31,7 +41,7 @@ const sections = [
   {
     id: 'location',
     icon: MapPin,
-    title: 'مكان الاختبارات والتقديم',
+    title: 'مكان الاختبارات',
     items: [
       'مدرسة القرآن الكريم',
       'نجع كمبل - أولاد نجم بهجورة - نجع حمادي',
@@ -64,8 +74,8 @@ export default function Landing() {
           {/* Mobile text group container */}
           <div className="max-sm:bg-[rgb(255,248,232)]/25 max-sm:backdrop-blur-[2px] max-sm:rounded-xl max-sm:p-2.5 max-sm:shadow-sm max-sm:shadow-brown-900/5 max-sm:mb-5">
             {/* Organizer label */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brown-600/10 text-brown-600 text-sm font-semibold mb-6">
-              <BookOpen className="w-4 h-4" />
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full bg-[rgba(92,53,28,0.72)] text-[#fff4d8] text-xs sm:text-sm font-semibold mb-5 sm:mb-6 border border-[rgba(218,180,104,0.45)] shadow-sm shadow-brown-900/20">
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold-300" />
               <span>للعام الثالث على التوالي</span>
             </div>
 
@@ -82,6 +92,14 @@ export default function Landing() {
             <p className="text-lg max-sm:text-base sm:text-xl text-brown-600/90 max-w-2xl max-sm:max-w-[280px] mx-auto max-sm:mb-0 mb-8 font-medium" style={{ textShadow: '0 1px 10px rgba(253,251,247,0.9), 0 1px 4px rgba(44,24,16,0.15)' }}>
               مسابقة لحفظ القرآن الكريم كاملًا على مستوى مركز ومدينة نجع حمادي
             </p>
+          </div>
+
+          {/* Award badge */}
+          <div className="flex justify-center mb-6 sm:mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-[rgba(214,177,95,0.88)] text-[#3b2115] text-sm sm:text-base font-medium border border-[rgba(255,244,210,0.55)] shadow-md shadow-brown-900/10 max-sm:max-w-[300px]">
+              <span className="text-base sm:text-lg">🏆</span>
+              <span>مع جوائز قيّمة وتكريم خاص للفائزين</span>
+            </div>
           </div>
 
           {/* CTAs */}
