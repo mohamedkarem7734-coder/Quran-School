@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS registrations (
   has_whatsapp BOOLEAN NOT NULL DEFAULT FALSE,
   sheikh_name TEXT NOT NULL,
   participated_before BOOLEAN NOT NULL DEFAULT FALSE,
+  was_winner BOOLEAN DEFAULT NULL,
+  feedback TEXT DEFAULT '',
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

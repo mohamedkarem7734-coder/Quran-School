@@ -10,11 +10,11 @@ export interface Registration {
   has_whatsapp: boolean
   sheikh_name: string
   participated_before: boolean
-  status: 'pending' | 'approved' | 'rejected'
+  was_winner: boolean | null
+  feedback: string
   created_at: string
 }
 
-export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
 export type Gender = 'male' | 'female'
 
 export interface RegistrationFormData {
@@ -27,12 +27,6 @@ export interface RegistrationFormData {
   has_whatsapp: boolean
   sheikh_name: string
   participated_before: boolean
-}
-
-export interface AdminFilterState {
-  search: string
-  gender: Gender | ''
-  status: RegistrationStatus | ''
-  participated_before: string
-  has_whatsapp: string
+  was_winner: boolean | null
+  feedback: string
 }

@@ -1,30 +1,16 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  LogIn, LogOut, Search, Users, UserCheck, UserX, Clock,
-  FileSpreadsheet, FileText, Trash2,
+  LogIn, LogOut, Search, Users, UserCheck, UserX,
+  FileSpreadsheet, Trash2,
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Toast, useToast } from '../components/ui/Toast'
-import type { Registration, RegistrationStatus, Gender } from '../types'
-import { listRegistrations, updateRegistrationStatus, deleteRegistration } from '../lib/registrations'
+import type { Registration, Gender } from '../types'
+import { listRegistrations, deleteRegistration } from '../lib/registrations'
 import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import 'jspdf-autotable'
 
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
-
-const statusLabels: Record<RegistrationStatus, string> = {
-  pending: 'قيد الانتظار',
-  approved: 'مقبول',
-  rejected: 'مرفوض',
-}
-
-const statusColors: Record<RegistrationStatus, string> = {
-  pending: 'bg-gold-100 text-gold-600 border-gold-300/50',
-  approved: 'bg-success/10 text-success border-success/30',
-  rejected: 'bg-error/10 text-error border-error/30',
-}
 
 const genderLabels: Record<Gender, string> = {
   male: 'ذكر',
@@ -39,9 +25,9 @@ export default function Admin() {
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [genderFilter, setGenderFilter] = useState<Gender | ''>('')
-  const [statusFilter, setStatusFilter] = useState<RegistrationStatus | ''>('')
   const [participatedFilter, setParticipatedFilter] = useState('')
   const [whatsappFilter, setWhatsappFilter] = useState('')
+  const [winnerFilter, setWinnerFilter] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const { toast, showToast, clearToast } = useToast()
 
@@ -79,37 +65,28 @@ export default function Admin() {
           r.full_name.includes(q) ||
           r.phone.includes(q) ||
           r.national_id.includes(q) ||
-          r.registration_number.toLowerCase().includes(q)
+          r.registration_number.toLowerCase().includes(q) ||
+          r.address.includes(q) ||
+          r.sheikh_name.includes(q)
         if (!matches) return false
       }
       if (genderFilter && r.gender !== genderFilter) return false
-      if (statusFilter && r.status !== statusFilter) return false
       if (participatedFilter === 'yes' && !r.participated_before) return false
       if (participatedFilter === 'no' && r.participated_before) return false
       if (whatsappFilter === 'yes' && !r.has_whatsapp) return false
       if (whatsappFilter === 'no' && r.has_whatsapp) return false
+      if (winnerFilter === 'yes' && !r.was_winner) return false
+      if (winnerFilter === 'no' && r.was_winner !== false) return false
       return true
     })
-  }, [registrations, search, genderFilter, statusFilter, participatedFilter, whatsappFilter])
+  }, [registrations, search, genderFilter, participatedFilter, whatsappFilter, winnerFilter])
 
   const stats = useMemo(() => ({
     total: registrations.length,
     male: registrations.filter((r) => r.gender === 'male').length,
     female: registrations.filter((r) => r.gender === 'female').length,
-    pending: registrations.filter((r) => r.status === 'pending').length,
+    whatsapp: registrations.filter((r) => r.has_whatsapp).length,
   }), [registrations])
-
-  const handleStatusChange = async (id: string, status: RegistrationStatus) => {
-    try {
-      await updateRegistrationStatus(id, status)
-      setRegistrations((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status } : r))
-      )
-      showToast('تم تحديث الحالة بنجاح', 'success')
-    } catch {
-      showToast('حدث خطأ أثناء تحديث الحالة', 'error')
-    }
-  }
 
   const handleDelete = async (id: string) => {
     try {
@@ -126,81 +103,22 @@ export default function Admin() {
     const data = filtered.map((r) => ({
       'رقم التسجيل': r.registration_number,
       'الاسم': r.full_name,
+      'الرقم القومي': r.national_id,
       'السن': r.age,
       'النوع': genderLabels[r.gender],
-      'الرقم القومي': r.national_id,
       'الهاتف': r.phone,
+      'العنوان بالتفصيل': r.address,
       'واتساب': r.has_whatsapp ? 'نعم' : 'لا',
-      'الشيخ المحفظ': r.sheikh_name,
-      'شارك من قبل': r.participated_before ? 'نعم' : 'لا',
-      'الحالة': statusLabels[r.status],
+      'اسم الشيخ المحفظ': r.sheikh_name,
+      'شارك في مسابقة الماهر بالقرآن الكريم في العام الماضي؟': r.participated_before ? 'نعم' : 'لا',
+      'كان من الفائزين في العام الماضي؟': r.was_winner === true ? 'نعم' : r.was_winner === false ? 'لا' : '—',
+      'الرأي في المسابقة في العام الماضي': r.feedback || '—',
       'تاريخ التسجيل': new Date(r.created_at).toLocaleDateString('ar-EG'),
     }))
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'المسجلون')
     XLSX.writeFile(wb, `مسابقة-الماهر-بالقرآن-${new Date().toISOString().split('T')[0]}.xlsx`)
-  }
-
-  const exportPDF = () => {
-    const doc = new jsPDF('landscape', 'mm', 'a4')
-    const pageWidth = doc.internal.pageSize.getWidth()
-    doc.setFont('cairo', undefined, 'normal')
-    doc.text('مسابقة الماهر بالقرآن الكريم 2025 - سجل المتسابقين', pageWidth / 2, 15, { align: 'center' })
-
-    const headers = [
-      ['رقم التسجيل', 'الاسم', 'السن', 'النوع', 'الهاتف', 'الرقم القومي', 'واتساب', 'الشيخ المحفظ', 'شارك قبل', 'الحالة', 'تاريخ التسجيل'],
-    ]
-    const data = filtered.map((r) => [
-      r.registration_number,
-      r.full_name,
-      String(r.age),
-      genderLabels[r.gender],
-      r.phone,
-      r.national_id,
-      r.has_whatsapp ? 'نعم' : 'لا',
-      r.sheikh_name,
-      r.participated_before ? 'نعم' : 'لا',
-      statusLabels[r.status],
-      new Date(r.created_at).toLocaleDateString('ar-EG'),
-    ])
-
-    doc.autoTable({
-      head: headers,
-      body: data,
-      startY: 25,
-      theme: 'grid',
-      styles: {
-        font: 'cairo',
-        fontSize: 7,
-        cellPadding: 2,
-        halign: 'right',
-      },
-      headStyles: {
-        fillColor: [139, 94, 60],
-        textColor: [255, 255, 255],
-        fontSize: 7,
-        halign: 'right',
-      },
-      columnStyles: {
-        0: { cellWidth: 28 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 10 },
-        3: { cellWidth: 12 },
-        4: { cellWidth: 22 },
-        5: { cellWidth: 25 },
-        6: { cellWidth: 14 },
-        7: { cellWidth: 28 },
-        8: { cellWidth: 16 },
-        9: { cellWidth: 18 },
-        10: { cellWidth: 22 },
-      },
-      didDrawPage: (data: { pageCount: number }) => {
-        doc.text(`صفحة ${data.pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' })
-      },
-    })
-
-    doc.save(`مسابقة-الماهر-بالقرآن-${new Date().toISOString().split('T')[0]}.pdf`)
   }
 
   if (!loggedIn) {
@@ -252,10 +170,6 @@ export default function Admin() {
             <FileSpreadsheet className="w-4 h-4" />
             Excel
           </Button>
-          <Button variant="primary" size="sm" onClick={exportPDF}>
-            <FileText className="w-4 h-4" />
-            PDF
-          </Button>
         </div>
       </div>
 
@@ -265,7 +179,7 @@ export default function Admin() {
           { label: 'إجمالي المسجلين', value: stats.total, icon: Users, color: 'bg-brown-600/10 text-brown-600' },
           { label: 'ذكور', value: stats.male, icon: UserCheck, color: 'bg-blue-100 text-blue-700' },
           { label: 'إناث', value: stats.female, icon: UserX, color: 'bg-pink-100 text-pink-700' },
-          { label: 'قيد الانتظار', value: stats.pending, icon: Clock, color: 'bg-gold-100 text-gold-600' },
+          { label: 'واتساب', value: stats.whatsapp, icon: Users, color: 'bg-green-100 text-green-700' },
         ].map((stat) => (
           <Card key={stat.label} className="p-4 sm:p-5">
             <div className="flex items-center justify-between">
@@ -288,7 +202,7 @@ export default function Admin() {
             <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brown-400" />
             <input
               type="text"
-              placeholder="بحث بالاسم أو رقم الهاتف أو الرقم القومي أو رقم التسجيل..."
+              placeholder="بحث بالاسم أو رقم الهاتف أو الرقم القومي أو رقم التسجيل أو العنوان أو اسم الشيخ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pr-12 pl-4 py-3 bg-cream-50 border-2 border-cream-300 rounded-xl text-brown-800 placeholder-brown-300 transition-colors focus:outline-none focus:border-gold-500"
@@ -305,30 +219,29 @@ export default function Admin() {
               <option value="female">أنثى</option>
             </select>
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as RegistrationStatus | '')}
+              value={whatsappFilter}
+              onChange={(e) => setWhatsappFilter(e.target.value)}
               className="px-3 py-2 bg-cream-50 border-2 border-cream-300 rounded-xl text-brown-800 text-sm focus:outline-none focus:border-gold-500"
             >
-              <option value="">الحالة: الكل</option>
-              <option value="pending">قيد الانتظار</option>
-              <option value="approved">مقبول</option>
-              <option value="rejected">مرفوض</option>
+              <option value="">واتساب: الكل</option>
+              <option value="yes">نعم</option>
+              <option value="no">لا</option>
             </select>
             <select
               value={participatedFilter}
               onChange={(e) => setParticipatedFilter(e.target.value)}
               className="px-3 py-2 bg-cream-50 border-2 border-cream-300 rounded-xl text-brown-800 text-sm focus:outline-none focus:border-gold-500"
             >
-              <option value="">شارك من قبل: الكل</option>
+              <option value="">شارك في العام الماضي: الكل</option>
               <option value="yes">نعم</option>
               <option value="no">لا</option>
             </select>
             <select
-              value={whatsappFilter}
-              onChange={(e) => setWhatsappFilter(e.target.value)}
+              value={winnerFilter}
+              onChange={(e) => setWinnerFilter(e.target.value)}
               className="px-3 py-2 bg-cream-50 border-2 border-cream-300 rounded-xl text-brown-800 text-sm focus:outline-none focus:border-gold-500"
             >
-              <option value="">واتساب: الكل</option>
+              <option value="">فائز في العام الماضي: الكل</option>
               <option value="yes">نعم</option>
               <option value="no">لا</option>
             </select>
@@ -347,14 +260,16 @@ export default function Admin() {
                 <tr className="bg-brown-600 text-cream-50 text-right">
                   <th className="px-3 py-3 font-semibold whitespace-nowrap">رقم التسجيل</th>
                   <th className="px-3 py-3 font-semibold whitespace-nowrap">الاسم</th>
+                  <th className="px-3 py-3 font-semibold whitespace-nowrap">الرقم القومي</th>
                   <th className="px-3 py-3 font-semibold whitespace-nowrap">السن</th>
                   <th className="px-3 py-3 font-semibold whitespace-nowrap">النوع</th>
                   <th className="px-3 py-3 font-semibold whitespace-nowrap">الهاتف</th>
-                  <th className="px-3 py-3 font-semibold whitespace-nowrap">الرقم القومي</th>
+                  <th className="px-3 py-3 font-semibold whitespace-nowrap">العنوان</th>
                   <th className="px-3 py-3 font-semibold whitespace-nowrap">واتساب</th>
                   <th className="px-3 py-3 font-semibold whitespace-nowrap">الشيخ المحفظ</th>
-                  <th className="px-3 py-3 font-semibold whitespace-nowrap">شارك قبل</th>
-                  <th className="px-3 py-3 font-semibold whitespace-nowrap">الحالة</th>
+                  <th className="px-3 py-3 font-semibold whitespace-nowrap">شارك في العام الماضي</th>
+                  <th className="px-3 py-3 font-semibold whitespace-nowrap">فائز في العام الماضي</th>
+                  <th className="px-3 py-3 font-semibold whitespace-nowrap">الرأي</th>
                   <th className="px-3 py-3 font-semibold whitespace-nowrap">تاريخ التسجيل</th>
                   <th className="px-3 py-3 font-semibold whitespace-nowrap">إجراءات</th>
                 </tr>
@@ -362,7 +277,7 @@ export default function Admin() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="px-3 py-8 text-center text-brown-400">
+                    <td colSpan={14} className="px-3 py-8 text-center text-brown-400">
                       لا توجد نتائج
                     </td>
                   </tr>
@@ -373,23 +288,17 @@ export default function Admin() {
                         {reg.registration_number}
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">{reg.full_name}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap" dir="ltr">{reg.national_id}</td>
                       <td className="px-3 py-2.5">{reg.age}</td>
                       <td className="px-3 py-2.5">{genderLabels[reg.gender]}</td>
                       <td className="px-3 py-2.5 whitespace-nowrap" dir="ltr">{reg.phone}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap" dir="ltr">{reg.national_id}</td>
+                      <td className="px-3 py-2.5 max-w-[200px] truncate" title={reg.address}>{reg.address}</td>
                       <td className="px-3 py-2.5">{reg.has_whatsapp ? 'نعم' : 'لا'}</td>
                       <td className="px-3 py-2.5 whitespace-nowrap">{reg.sheikh_name}</td>
                       <td className="px-3 py-2.5">{reg.participated_before ? 'نعم' : 'لا'}</td>
-                      <td className="px-3 py-2.5">
-                        <select
-                          value={reg.status}
-                          onChange={(e) => handleStatusChange(reg.id, e.target.value as RegistrationStatus)}
-                          className={`px-2 py-1 rounded-lg border text-xs font-semibold cursor-pointer focus:outline-none ${statusColors[reg.status]}`}
-                        >
-                          <option value="pending">قيد الانتظار</option>
-                          <option value="approved">مقبول</option>
-                          <option value="rejected">مرفوض</option>
-                        </select>
+                      <td className="px-3 py-2.5">{reg.was_winner === true ? 'نعم' : reg.was_winner === false ? 'لا' : '—'}</td>
+                      <td className="px-3 py-2.5 max-w-[200px] truncate text-brown-500" title={reg.feedback || ''}>
+                        {reg.feedback || '—'}
                       </td>
                       <td className="px-3 py-2.5 text-brown-500 text-xs whitespace-nowrap">
                         {new Date(reg.created_at).toLocaleDateString('ar-EG')}

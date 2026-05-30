@@ -1,4 +1,4 @@
-import type { Registration, RegistrationFormData, RegistrationStatus } from '../types'
+import type { Registration, RegistrationFormData } from '../types'
 import { supabase } from './supabase'
 
 function generateRegistrationNumber(): string {
@@ -24,6 +24,8 @@ export async function createRegistration(data: RegistrationFormData): Promise<Re
       has_whatsapp: data.has_whatsapp,
       sheikh_name: data.sheikh_name.trim(),
       participated_before: data.participated_before,
+      was_winner: data.was_winner,
+      feedback: data.feedback.trim(),
     })
     .select()
     .single()
@@ -50,18 +52,6 @@ export async function listRegistrations(): Promise<Registration[]> {
 
   if (error) throw new Error('حدث خطأ أثناء تحميل البيانات')
   return data || []
-}
-
-export async function updateRegistrationStatus(
-  id: string,
-  status: RegistrationStatus
-): Promise<void> {
-  const { error } = await supabase
-    .from('registrations')
-    .update({ status })
-    .eq('id', id)
-
-  if (error) throw new Error('حدث خطأ أثناء تحديث الحالة')
 }
 
 export async function deleteRegistration(id: string): Promise<void> {

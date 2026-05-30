@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BookOpen, Send } from 'lucide-react'
 import { Card } from '../components/ui/Card'
@@ -18,6 +18,34 @@ interface FormErrors {
   has_whatsapp?: string
   sheikh_name?: string
   participated_before?: string
+  was_winner?: string
+}
+
+function parseNationalId(id: string): { age: number; gender: Gender } | null {
+  if (!/^\d{14}$/.test(id)) return null
+
+  const centuryDigit = parseInt(id[0], 10)
+  if (centuryDigit !== 2 && centuryDigit !== 3) return null
+
+  const prefix = centuryDigit === 2 ? '19' : '20'
+  const yy = id.substring(1, 3)
+  const mm = id.substring(3, 5)
+  const dd = id.substring(5, 7)
+
+  const birthDate = new Date(`${prefix}${yy}-${mm}-${dd}`)
+  if (isNaN(birthDate.getTime())) return null
+
+  const today = new Date()
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--
+  }
+
+  const genderDigit = parseInt(id[12], 10)
+  const gender: Gender = genderDigit % 2 === 1 ? 'male' : 'female'
+
+  return { age, gender }
 }
 
 function validateForm(data: RegistrationFormData): FormErrors {
@@ -71,6 +99,10 @@ function validateForm(data: RegistrationFormData): FormErrors {
     errors.participated_before = 'من فضلك اختر'
   }
 
+  if (data.participated_before && data.was_winner === null) {
+    errors.was_winner = 'من فضلك اختر'
+  }
+
   return errors
 }
 
@@ -89,6 +121,8 @@ export default function Register() {
     has_whatsapp: false,
     sheikh_name: '',
     participated_before: false,
+    was_winner: null,
+    feedback: '',
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
@@ -98,14 +132,26 @@ export default function Register() {
     value: RegistrationFormData[K]
   ) => {
     setForm((prev) => ({ ...prev, [key]: value }))
-    if (errors[key]) {
+    if (errors[key as keyof FormErrors]) {
       setErrors((prev) => {
         const next = { ...prev }
-        delete next[key]
+        delete next[key as keyof FormErrors]
         return next
       })
     }
   }
+
+  useEffect(() => {
+    const result = parseNationalId(form.national_id)
+    if (result) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm((prev) => ({
+        ...prev,
+        age: String(result.age),
+        gender: result.gender,
+      }))
+    }
+  }, [form.national_id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -138,7 +184,7 @@ export default function Register() {
             التسجيل في المسابقة
           </h1>
           <p className="text-brown-500">
-            مسابقة الماهر بالقرآن الكريم 2025
+            مسابقة الماهر بالقرآن الكريم 2026
           </p>
         </div>
 
@@ -149,6 +195,15 @@ export default function Register() {
             value={form.full_name}
             onChange={(e) => updateField('full_name', e.target.value)}
             error={errors.full_name}
+          />
+
+          <Input
+            label="الرقم القومي"
+            placeholder="14 رقمًا"
+            maxLength={14}
+            value={form.national_id}
+            onChange={(e) => updateField('national_id', e.target.value.replace(/\D/g, '').slice(0, 14))}
+            error={errors.national_id}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -175,15 +230,6 @@ export default function Register() {
               error={errors.gender}
             />
           </div>
-
-          <Input
-            label="الرقم القومي"
-            placeholder="14 رقمًا"
-            maxLength={14}
-            value={form.national_id}
-            onChange={(e) => updateField('national_id', e.target.value.replace(/\D/g, '').slice(0, 14))}
-            error={errors.national_id}
-          />
 
           <Textarea
             label="العنوان بالتفصيل"
@@ -223,15 +269,42 @@ export default function Register() {
           />
 
           <Select
-            label="هل شاركت من قبل في أي من مسابقات القرآن الكريم؟"
+            label="هل شاركت في مسابقة الماهر بالقرآن الكريم في العام الماضي؟"
             placeholder="اختر"
             value={form.participated_before === true ? 'yes' : form.participated_before === false ? 'no' : ''}
-            onChange={(e) => updateField('participated_before', e.target.value === 'yes')}
+            onChange={(e) => {
+              const val = e.target.value === 'yes'
+              updateField('participated_before', val)
+              if (!val) {
+                updateField('was_winner', null)
+              }
+            }}
             options={[
               { value: 'yes', label: 'نعم' },
               { value: 'no', label: 'لا' },
             ]}
             error={errors.participated_before}
+          />
+
+          {form.participated_before && (
+            <Select
+              label="هل كنت من الفائزين في مسابقة الماهر بالقرآن الكريم في العام الماضي؟"
+              placeholder="اختر"
+              value={form.was_winner === true ? 'yes' : form.was_winner === false ? 'no' : ''}
+              onChange={(e) => updateField('was_winner', e.target.value === 'yes' ? true : e.target.value === 'no' ? false : null)}
+              options={[
+                { value: 'yes', label: 'نعم' },
+                { value: 'no', label: 'لا' },
+              ]}
+              error={errors.was_winner}
+            />
+          )}
+
+          <Textarea
+            label="رأيك في مسابقة الماهر بالقرآن الكريم في العام الماضي"
+            placeholder="اكتب رأيك هنا (اختياري)"
+            value={form.feedback}
+            onChange={(e) => updateField('feedback', e.target.value)}
           />
 
           <div className="pt-4">
